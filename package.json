@@ -1,0 +1,12 @@
+{
+  "name": "2careai-voice-agent",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/voice-gateway-ts"
+  ],
+  "scripts": {
+    "dev:gateway": "npm --workspace apps/voice-gateway-ts run dev",
+    "build:gateway": "npm --workspace apps/voice-gateway-ts run build"
+  }
+}

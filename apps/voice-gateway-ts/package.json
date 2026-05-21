@@ -1,0 +1,19 @@
+{
+  "name": "voice-gateway-ts",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/server.ts",
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "uuid": "^10.0.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.8.1",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  }
+}
