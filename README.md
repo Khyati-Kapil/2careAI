@@ -42,6 +42,13 @@ uvicorn services.memory_py.app.main:app --port 8002 --reload
 uvicorn services.agent_py.app.main:app --port 8000 --reload
 ```
 
+Optional (Redis-backed memory with TTL):
+```bash
+export REDIS_URL=redis://127.0.0.1:6379/0
+export SESSION_TTL_SECONDS=3600
+uvicorn services.memory_py.app.main:app --port 8002 --reload
+```
+
 ### 3) Start gateway
 
 ```bash
@@ -73,7 +80,11 @@ python benchmarks/latency_benchmark.py
 
 - Session memory (`call_id` keyed): current intent, pending fields, active language
 - Cross-session memory (`patient_id` keyed): preferred language, interaction notes
-- Current implementation is in-memory for fast iteration; interface is structured for Redis + persistent DB migration.
+- Redis-backed memory is supported:
+- `REDIS_URL` enables Redis storage
+- session memory uses TTL via `SESSION_TTL_SECONDS` (default `3600`)
+- patient memory is persisted without TTL for cross-session continuity
+- If Redis is unavailable, service falls back to in-memory dictionaries.
 
 ## Latency Design Notes
 
@@ -91,14 +102,14 @@ Next optimization passes:
 - streaming ASR partials
 - speculative tool prefetch for high-confidence intent
 - streaming TTS first-clause emit
-- Redis for memory access predictability
+- Redis latency tuning and connection pooling
 
 ## Tradeoffs and Known Limitations
 
 - No real telephony/SIP in this baseline
 - ASR/TTS are represented as integration points, not production providers yet
 - Natural-language time parsing is intentionally heuristic for now (e.g., tomorrow morning/evening)
-- In-memory stores are non-durable (planned Redis + Postgres)
+- No durable SQL store yet for long-term analytics (current persistent option is Redis key-value)
 
 ## Submission Artifacts Checklist
 
