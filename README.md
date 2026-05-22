@@ -10,6 +10,7 @@ Implemented:
 - Outbound campaign worker scaffold
 - Conflict checks: doctor existence, past-time rejection, overlap prevention
 - Session + cross-session memory updates
+- Multi-turn `reschedule` and `cancel` execution with appointment-id extraction
 - Per-turn latency logging (`memory_read`, `nlu`, `orchestration`, `memory_write`, `total`)
 
 ## Architecture
@@ -62,6 +63,12 @@ curl -X POST http://127.0.0.1:3000/voice/turn \
 python workers/campaign_py/app/main.py
 ```
 
+### 6) Latency benchmark
+
+```bash
+python benchmarks/latency_benchmark.py
+```
+
 ## Memory Design
 
 - Session memory (`call_id` keyed): current intent, pending fields, active language
@@ -90,7 +97,7 @@ Next optimization passes:
 
 - No real telephony/SIP in this baseline
 - ASR/TTS are represented as integration points, not production providers yet
-- Reschedule/cancel follow-up flow is partial (ID collection prompt done; full execution next)
+- Natural-language time parsing is intentionally heuristic for now (e.g., tomorrow morning/evening)
 - In-memory stores are non-durable (planned Redis + Postgres)
 
 ## Submission Artifacts Checklist

@@ -64,6 +64,20 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/appointments/{appointment_id}")
+def get_appointment(appointment_id: str) -> dict:
+    appt = APPOINTMENTS.get(appointment_id)
+    if not appt:
+        raise HTTPException(status_code=404, detail="appointment_not_found")
+    return {"appointment": appt.model_dump()}
+
+
+@app.get("/patients/{patient_id}/appointments")
+def get_patient_appointments(patient_id: str) -> dict:
+    appointments = [a.model_dump() for a in APPOINTMENTS.values() if a.patient_id == patient_id]
+    return {"appointments": appointments}
+
+
 @app.post("/check_availability")
 def check_availability(query: SlotQuery) -> dict:
     if query.doctor_id not in DOCTORS:
