@@ -2,6 +2,15 @@
 
 This repository implements a low-latency voice AI architecture for booking, rescheduling, and cancellation across English, Hindi, and Tamil.
 
+## Tech Stack and Libraries
+
+- Backend: `Python 3` + `FastAPI` + `Uvicorn`
+- Frontend gateway/demo: `TypeScript` + `Express` + browser Web Speech APIs (`SpeechRecognition`, `SpeechSynthesis`)
+- Memory: in-memory store with optional `Redis` (`redis-py`) for session TTL and persistent patient context
+- Data models: `Pydantic`
+- Tool orchestration transport: internal HTTP tool calls (`urllib.request`) between agent, memory, scheduler, identity services
+- Benchmarking/testing: Python benchmark script + helper tests
+
 ## Current Progress (Step-by-Step Execution)
 
 Implemented:
@@ -29,68 +38,149 @@ Implemented:
   - `services/memory_py`: session and patient memory
   - `workers/campaign_py`: outbound campaign trigger loop
 
+```mermaid
+flowchart LR
+    A["Patient Voice Input"] --> B["Voice Gateway (TypeScript)"]
+    B --> C["Streaming ASR (Browser / Provider Boundary)"]
+    C --> D["Agent Runtime (Python)"]
+    D --> E["Memory Service\nSession + Cross-session Context"]
+    D --> F["Scheduler Service\nAvailability + Conflict Engine"]
+    D --> K["Identity Service\nCaller -> Patient Resolution"]
+    D --> G["Tool Trace Store + Latency Logger"]
+    D --> H["Streaming TTS (Browser / Provider Boundary)"]
+    H --> I["Voice Response"]
+    J["Campaign Worker Queue\nRetry + Outcomes"] --> D
+```
+
+## Feature Coverage
+
+Implemented: **9 / 9**
+
+1. Real-time voice conversation: `Implemented`
+2. Appointment booking/create: `Implemented`
+3. Appointment rescheduling: `Implemented`
+4. Appointment cancellation: `Implemented`
+5. Conflict handling (double-booking, past time, unavailable doctor): `Implemented`
+6. Multilingual support (English, Hindi, Tamil): `Implemented`
+7. Language preference persists across sessions: `Implemented`
+8. Cross-session memory (history/preferences): `Implemented`
+9. Reasoning traces visible (logging/UI): `Implemented`
+10. Outbound campaign mode (reminders/follow-ups): `Implemented`
+11. Dynamic language adaptation in outbound calls: `Implemented`
+
+Real-time conversation implementation details:
+- browser mic capture (`SpeechRecognition`)
+- automatic barge-in interruption (user speech cancels active spoken response)
+- spoken response output (`SpeechSynthesis`)
+- streaming turn endpoint for progressive chunk delivery (`/voice/turn/stream`)
+
 ## Run Locally
 
-### 1) Python env
+### 1) Install dependencies
 
 ```bash
 cd /Users/khyati/2careAI
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e .
-```
-
-### 2) Start services
-
-```bash
-uvicorn services.scheduler_py.app.main:app --port 8001 --reload
-uvicorn services.memory_py.app.main:app --port 8002 --reload
-uvicorn services.identity_py.app.main:app --port 8003 --reload
-uvicorn services.agent_py.app.main:app --port 8000 --reload
-```
-
-Optional (Redis-backed memory with TTL):
-```bash
-export REDIS_URL=redis://127.0.0.1:6379/0
-export SESSION_TTL_SECONDS=3600
-uvicorn services.memory_py.app.main:app --port 8002 --reload
-```
-
-### 3) Start gateway
-
-```bash
+pip install fastapi uvicorn pydantic redis
 npm install
+```
+
+### 2) Start backend services (4 terminals)
+
+Terminal A:
+```bash
+cd /Users/khyati/2careAI
+source .venv/bin/activate
+uvicorn services.scheduler_py.app.main:app --port 8001
+```
+
+Terminal B:
+```bash
+cd /Users/khyati/2careAI
+source .venv/bin/activate
+uvicorn services.memory_py.app.main:app --port 8002
+```
+
+Terminal C:
+```bash
+cd /Users/khyati/2careAI
+source .venv/bin/activate
+uvicorn services.identity_py.app.main:app --port 8003
+```
+
+Terminal D:
+```bash
+cd /Users/khyati/2careAI
+source .venv/bin/activate
+uvicorn services.agent_py.app.main:app --port 8000
+```
+
+### 3) Start gateway (Terminal E)
+
+```bash
 npm run dev:gateway
 ```
 
-### 4) Sample turn
+### 4) Optional Redis-backed memory with TTL
+
+Start Redis first, then run memory service with:
+```bash
+export REDIS_URL=redis://127.0.0.1:6379/0
+export SESSION_TTL_SECONDS=3600
+uvicorn services.memory_py.app.main:app --port 8002
+```
+
+### 5) Verify health endpoints
+
+```bash
+curl -s http://127.0.0.1:3000/health
+curl -s http://127.0.0.1:8000/health
+curl -s http://127.0.0.1:8001/health
+curl -s http://127.0.0.1:8002/health
+curl -s http://127.0.0.1:8003/health
+```
+
+### 6) Open browser demo
+
+- Demo UI: `http://127.0.0.1:3000/demo`
+- Includes:
+- mic input + speech output
+- one-click scenario buttons (book, conflict, option select, reschedule, cancel, outbound-decline)
+- live trace viewer
+
+### 7) Sample turn (API)
 
 ```bash
 curl -X POST http://127.0.0.1:3000/voice/turn \
   -H 'Content-Type: application/json' \
-  -d '{"patientId":"pat-001","utterance":"मुझे appointment book करनी है"}'
+  -d '{"callerNumber":"+919900000001","callId":"demo-1","utterance":"book appointment tomorrow morning with dr mehta"}'
 ```
 
-### 5) Outbound campaign simulation
+### 8) Streaming turn simulation (SSE)
 
 ```bash
+curl -N -X POST http://127.0.0.1:3000/voice/turn/stream \
+  -H 'Content-Type: application/json' \
+  -d '{"callerNumber":"+919900000001","callId":"demo-stream-1","utterance":"switch to tamil and book appointment tomorrow evening"}'
+```
+
+### 9) Outbound campaign simulation
+
+```bash
+cd /Users/khyati/2careAI
+source .venv/bin/activate
 python workers/campaign_py/app/main.py
 ```
 
 Campaign outcomes are written to:
 `/Users/khyati/2careAI/workers/campaign_py/outbound_outcomes.jsonl`
 
-### 5.1) Streaming turn simulation (SSE)
+### 10) Latency benchmark
 
 ```bash
-curl -N -X POST http://127.0.0.1:3000/voice/turn/stream \
-  -H 'Content-Type: application/json' \
-  -d '{"patientId":"pat-001","utterance":"book appointment tomorrow morning"}'
-```
-
-### 6) Latency benchmark
-
-```bash
+cd /Users/khyati/2careAI
+source .venv/bin/activate
 python benchmarks/latency_benchmark.py
 ```
 

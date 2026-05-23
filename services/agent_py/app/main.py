@@ -27,6 +27,7 @@ LANG_SWITCH_PATTERNS: dict[Language, tuple[str, ...]] = {
     Language.HI: ("hindi", "हिंदी", "हिन्दी", "switch to hindi"),
     Language.TA: ("tamil", "தமிழ்", "switch to tamil"),
 }
+DOCTOR_LABELS = {"doc-1": "Dr. Rao", "doc-2": "Dr. Mehta"}
 
 
 def post_json(url: str, payload: dict, correlation_id: str | None = None) -> dict:
@@ -151,6 +152,10 @@ def detect_doctor(text: str) -> str:
     if "unknown doctor" in lower:
         return "doc-99"
     return "doc-1"
+
+
+def doctor_label(doctor_id: str) -> str:
+    return DOCTOR_LABELS.get(doctor_id, doctor_id)
 
 
 def response_for_language(lang: Language, en: str, hi: str, ta: str) -> str:
@@ -294,6 +299,7 @@ def turn(payload: AgentTurnRequest, req: Request) -> AgentTurnResponse:
         if selected_alt and session.get("intent") in {"book", "reschedule"}:
             intent = Intent(session.get("intent"))
             start = datetime.fromisoformat(selected_alt["start_time"].replace("Z", "+00:00"))
+            selected_doctor = selected_alt.get("doctor_id", "doc-1")
             if intent == Intent.BOOK:
                 booking = _call_tool(
                     trace,
@@ -303,7 +309,7 @@ def turn(payload: AgentTurnRequest, req: Request) -> AgentTurnResponse:
                         f"{SCHEDULER_URL}/book",
                         {
                             "patient_id": payload.patient_id,
-                            "doctor_id": selected_alt.get("doctor_id", "doc-1"),
+                            "doctor_id": selected_doctor,
                             "start_time": start.isoformat(),
                             "duration_minutes": 30,
                         },
@@ -313,9 +319,9 @@ def turn(payload: AgentTurnRequest, req: Request) -> AgentTurnResponse:
                 appt_id = booking["appointment"]["appointment_id"]
                 reply = response_for_language(
                     lang,
-                    f"Confirmed. Your appointment is booked. ID: {appt_id}",
-                    f"कन्फर्म हो गया। आपकी अपॉइंटमेंट बुक हो गई है। आईडी: {appt_id}",
-                    f"உறுதி செய்யப்பட்டது. உங்கள் appointment பதிவு செய்யப்பட்டது. ஐடி: {appt_id}",
+                    f"Confirmed. Your appointment is booked with {doctor_label(selected_doctor)}. ID: {appt_id}",
+                    f"कन्फर्म हो गया। आपकी अपॉइंटमेंट {doctor_label(selected_doctor)} के साथ बुक हो गई है। आईडी: {appt_id}",
+                    f"உறுதி செய்யப்பட்டது. உங்கள் appointment {doctor_label(selected_doctor)} உடன் பதிவு செய்யப்பட்டது. ஐடி: {appt_id}",
                 )
             else:
                 result = _call_tool(
@@ -326,7 +332,7 @@ def turn(payload: AgentTurnRequest, req: Request) -> AgentTurnResponse:
                         f"{SCHEDULER_URL}/reschedule",
                         {
                             "appointment_id": appointment_id,
-                            "doctor_id": selected_alt.get("doctor_id", "doc-1"),
+                            "doctor_id": selected_doctor,
                             "start_time": start.isoformat(),
                             "duration_minutes": 30,
                         },
@@ -335,9 +341,9 @@ def turn(payload: AgentTurnRequest, req: Request) -> AgentTurnResponse:
                 )
                 reply = response_for_language(
                     lang,
-                    f"Confirmed. Rescheduled to {result['appointment']['start_time']}.",
-                    f"कन्फर्म हो गया। नया समय {result['appointment']['start_time']} है।",
-                    f"உறுதி செய்யப்பட்டது. புதிய நேரம் {result['appointment']['start_time']}.",
+                    f"Confirmed. Rescheduled to {result['appointment']['start_time']} with {doctor_label(selected_doctor)}.",
+                    f"कन्फर्म हो गया। नया समय {result['appointment']['start_time']} है, {doctor_label(selected_doctor)} के साथ।",
+                    f"உறுதி செய்யப்பட்டது. புதிய நேரம் {result['appointment']['start_time']}, {doctor_label(selected_doctor)} உடன்.",
                 )
             pending_fields["alternatives_json"] = ""
             conversation_state = "completed"
@@ -397,9 +403,9 @@ def turn(payload: AgentTurnRequest, req: Request) -> AgentTurnResponse:
                 appt_id = booking["appointment"]["appointment_id"]
                 reply = response_for_language(
                     lang,
-                    f"Your appointment is confirmed with Dr. Rao. ID: {appt_id}",
-                    f"आपकी अपॉइंटमेंट डॉ. राव के साथ कन्फर्म हो गई है। आईडी: {appt_id}",
-                    f"உங்கள் முன்பதிவு Dr. Rao உடன் உறுதி செய்யப்பட்டது. ஐடி: {appt_id}",
+                    f"Your appointment is confirmed with {doctor_label(doctor_id)}. ID: {appt_id}",
+                    f"आपकी अपॉइंटमेंट {doctor_label(doctor_id)} के साथ कन्फर्म हो गई है। आईडी: {appt_id}",
+                    f"உங்கள் முன்பதிவு {doctor_label(doctor_id)} உடன் உறுதி செய்யப்பட்டது. ஐடி: {appt_id}",
                 )
                 conversation_state = "completed"
                 pending_confirmation = None
@@ -422,6 +428,7 @@ def turn(payload: AgentTurnRequest, req: Request) -> AgentTurnResponse:
                 )
             else:
                 start = parse_requested_start(payload.utterance)
+                doctor_id = detect_doctor(payload.utterance)
                 try:
                     result = _call_tool(
                         trace,
@@ -431,7 +438,7 @@ def turn(payload: AgentTurnRequest, req: Request) -> AgentTurnResponse:
                             f"{SCHEDULER_URL}/reschedule",
                             {
                                 "appointment_id": appointment_id,
-                                "doctor_id": "doc-1",
+                                "doctor_id": doctor_id,
                                 "start_time": start.isoformat(),
                                 "duration_minutes": 30,
                             },
@@ -442,9 +449,9 @@ def turn(payload: AgentTurnRequest, req: Request) -> AgentTurnResponse:
                     appt = result["appointment"]
                     reply = response_for_language(
                         lang,
-                        f"Rescheduled successfully. New time is {appt['start_time']} with Dr. Rao.",
-                        f"रीशेड्यूल सफल रहा। नया समय {appt['start_time']} है, डॉ. राव के साथ।",
-                        f"மாற்றம் வெற்றிகரமாக முடிந்தது. புதிய நேரம் {appt['start_time']}, Dr. Rao உடன்.",
+                        f"Rescheduled successfully. New time is {appt['start_time']} with {doctor_label(doctor_id)}.",
+                        f"रीशेड्यूल सफल रहा। नया समय {appt['start_time']} है, {doctor_label(doctor_id)} के साथ।",
+                        f"மாற்றம் வெற்றிகரமாக முடிந்தது. புதிய நேரம் {appt['start_time']}, {doctor_label(doctor_id)} உடன்.",
                     )
                     conversation_state = "completed"
                     pending_confirmation = None
@@ -454,7 +461,7 @@ def turn(payload: AgentTurnRequest, req: Request) -> AgentTurnResponse:
                     if "slot_conflict" in detail:
                         pending_fields["appointment_id"] = appointment_id
                         q = {
-                            "doctor_id": "doc-1",
+                            "doctor_id": doctor_id,
                             "start_time": start.isoformat(),
                             "end_time": (start + timedelta(minutes=30)).isoformat(),
                         }
@@ -534,26 +541,36 @@ def turn(payload: AgentTurnRequest, req: Request) -> AgentTurnResponse:
 
     with tracker.span("memory_write"):
         memory_intent = intent.value if intent != Intent.UNKNOWN else session.get("intent")
-        post_json(
-            f"{MEMORY_URL}/session",
-            {
-                "call_id": payload.call_id,
-                "intent": memory_intent,
-                "pending_fields": pending_fields,
-                "conversation_state": conversation_state,
-                "pending_confirmation": pending_confirmation,
-                "language": lang.value,
-            },
-            correlation_id,
+        session_upsert_result = _call_tool(
+            trace,
+            tool_audit,
+            "memory.upsert_session",
+            lambda: post_json(
+                f"{MEMORY_URL}/session",
+                {
+                    "call_id": payload.call_id,
+                    "intent": memory_intent,
+                    "pending_fields": pending_fields,
+                    "conversation_state": conversation_state,
+                    "pending_confirmation": pending_confirmation,
+                    "language": lang.value,
+                },
+                correlation_id,
+            ),
         )
-        post_json(
-            f"{MEMORY_URL}/patient",
-            {
-                "patient_id": payload.patient_id,
-                "preferred_language": lang.value,
-                "note": f"intent={intent.value};ts={int(time.time())}",
-            },
-            correlation_id,
+        _call_tool(
+            trace,
+            tool_audit,
+            "memory.upsert_patient",
+            lambda: post_json(
+                f"{MEMORY_URL}/patient",
+                {
+                    "patient_id": payload.patient_id,
+                    "preferred_language": lang.value,
+                    "note": f"intent={intent.value};ts={int(time.time())}",
+                },
+                correlation_id,
+            ),
         )
 
     response = AgentTurnResponse(

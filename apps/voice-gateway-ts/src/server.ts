@@ -1181,6 +1181,7 @@ app.get("/demo", (_req, res) => {
         recognition.interimResults = true;
         
         recognition.onstart = () => {
+          if ("speechSynthesis" in window) speechSynthesis.cancel();
           byId("micStatusText").textContent = "Orchestrator Listening...";
           byId("micStatusText").className = "mic-status-text active";
           byId("micWave").classList.add("active");
@@ -1196,6 +1197,10 @@ app.get("/demo", (_req, res) => {
           byId("micWave").classList.remove("active");
         };
         recognition.onresult = (event) => {
+          // Barge-in: if user is speaking while TTS is active, stop current speech output.
+          if ("speechSynthesis" in window && speechSynthesis.speaking) {
+            speechSynthesis.cancel();
+          }
           let finalText = "";
           let interimText = "";
           for (let i = event.resultIndex; i < event.results.length; i += 1) {
