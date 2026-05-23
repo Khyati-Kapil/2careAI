@@ -7,8 +7,8 @@ flowchart LR
     C --> D["Agent Runtime (Python)"]
     D --> E["Memory Service\nSession + Long-term"]
     D --> F["Scheduler Service\nAvailability + Conflict Engine"]
-    D --> G["Tool Trace + Latency Logger"]
+    D --> G["Tool Trace Store + Latency Logger"]
     D --> H["Streaming TTS"]
     H --> I["Voice Response"]
-    J["Campaign Worker"] --> D
+    J["Campaign Worker Queue\nRetry + Outcomes"] --> D
 ```

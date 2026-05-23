@@ -37,6 +37,8 @@ class SessionUpdate(BaseModel):
     call_id: str
     intent: str | None = None
     pending_fields: dict[str, str] = Field(default_factory=dict)
+    conversation_state: str | None = None
+    pending_confirmation: str | None = None
     language: Language | None = None
 
 
@@ -76,6 +78,8 @@ def upsert_session(payload: SessionUpdate) -> dict:
         **current,
         "intent": payload.intent if payload.intent is not None else current.get("intent"),
         "pending_fields": {**current.get("pending_fields", {}), **payload.pending_fields},
+        "conversation_state": payload.conversation_state if payload.conversation_state is not None else current.get("conversation_state"),
+        "pending_confirmation": payload.pending_confirmation if payload.pending_confirmation is not None else current.get("pending_confirmation"),
         "language": payload.language.value if payload.language else current.get("language"),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
