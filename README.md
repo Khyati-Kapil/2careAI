@@ -11,22 +11,7 @@ This repository implements a low-latency voice AI architecture for booking, resc
 - Tool orchestration transport: internal HTTP tool calls (`urllib.request`) between agent, memory, scheduler, identity services
 - Benchmarking/testing: Python benchmark script + helper tests
 
-## Current Progress (Step-by-Step Execution)
 
-Implemented:
-- Python services: `agent`, `scheduler`, `memory`
-- Python `identity` service for caller-to-patient resolution
-- TypeScript service: `voice-gateway`
-- Outbound campaign worker queue with retry + outcome logging
-- Conflict checks: doctor existence, past-time rejection, overlap prevention
-- Session + cross-session memory updates
-- Multi-turn `reschedule` and `cancel` execution with appointment-id extraction
-- Language switch support (English/Hindi/Tamil) mid-conversation
-- Reasoning trace persistence and retrieval endpoints
-- Correlation IDs propagated gateway -> agent -> tool services
-- Tool-call audit envelopes with status and latency per invocation
-- Streaming response endpoint (SSE chunking for low-latency voice handoff simulation)
-- Per-turn latency logging (`memory_read`, `nlu`, `orchestration`, `memory_write`, `total`)
 
 ## Architecture
 
@@ -52,27 +37,7 @@ flowchart LR
     J["Campaign Worker Queue\nRetry + Outcomes"] --> D
 ```
 
-## Feature Coverage
 
-Implemented: **9 / 9**
-
-1. Real-time voice conversation: `Implemented`
-2. Appointment booking/create: `Implemented`
-3. Appointment rescheduling: `Implemented`
-4. Appointment cancellation: `Implemented`
-5. Conflict handling (double-booking, past time, unavailable doctor): `Implemented`
-6. Multilingual support (English, Hindi, Tamil): `Implemented`
-7. Language preference persists across sessions: `Implemented`
-8. Cross-session memory (history/preferences): `Implemented`
-9. Reasoning traces visible (logging/UI): `Implemented`
-10. Outbound campaign mode (reminders/follow-ups): `Implemented`
-11. Dynamic language adaptation in outbound calls: `Implemented`
-
-Real-time conversation implementation details:
-- browser mic capture (`SpeechRecognition`)
-- automatic barge-in interruption (user speech cancels active spoken response)
-- spoken response output (`SpeechSynthesis`)
-- streaming turn endpoint for progressive chunk delivery (`/voice/turn/stream`)
 
 ## Run Locally
 
@@ -122,7 +87,7 @@ uvicorn services.agent_py.app.main:app --port 8000
 npm run dev:gateway
 ```
 
-### 4) Optional Redis-backed memory with TTL
+### 4)Redis-backed memory with TTL
 
 Start Redis first, then run memory service with:
 ```bash
@@ -256,19 +221,3 @@ Next optimization passes:
 - replace SSE chunking with provider-backed streaming TTS
 - Redis latency tuning and connection pooling
 
-## Tradeoffs and Known Limitations
-
-- No real telephony/SIP in this baseline
-- ASR/TTS provider integration is still mocked at gateway/agent boundary
-- Natural-language time parsing is intentionally heuristic for now (e.g., tomorrow morning/evening)
-- No durable SQL store yet for long-term analytics (current persistent option is Redis key-value)
-
-## Submission Artifacts Checklist
-
-- [x] Final architecture diagram source in `docs/architecture.md`
-- [x] Loom script in `docs/loom_script.md`
-- [x] Latency benchmark runner in `benchmarks/latency_benchmark.py`
-- [x] Baseline multilingual and helper tests in `tests/test_agent_helpers.py`
-- [ ] Export architecture PNG/PDF
-- [ ] Record final Loom walkthrough (<=3 minutes)
-- [ ] Attach measured latency report from runtime execution
